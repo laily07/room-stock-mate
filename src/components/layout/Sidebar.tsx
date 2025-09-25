@@ -64,38 +64,43 @@ export function AppSidebar({ currentHouse }: AppSidebarProps) {
     isActive ? "bg-primary text-primary-foreground font-medium" : "hover:bg-accent";
 
   return (
-    <SidebarPrimitive collapsible="none">
-      <SidebarContent className="bg-sidebar-background">
-        {/* House Header */}
-        <div className="p-4 border-b border-sidebar-border">
-          <div>
-            <h2 className="font-semibold text-sidebar-foreground truncate">
-              {currentHouse || "Pilih Rumah"}
-            </h2>
-            <p className="text-xs text-sidebar-foreground/70">Management Stock</p>
-          </div>
+    <div className="w-64 h-screen bg-sidebar border-r border-sidebar-border flex flex-col">
+      {/* House Header */}
+      <div className="p-4 border-b border-sidebar-border">
+        <div>
+          <h2 className="font-semibold text-sidebar-foreground truncate">
+            {currentHouse || "Pilih Rumah"}
+          </h2>
+          <p className="text-xs text-sidebar-foreground/70">Management Stock</p>
         </div>
+      </div>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>
+      {/* Menu Section */}
+      <div className="flex-1 p-2">
+        <div className="space-y-2">
+          <div className="px-2 py-1.5 text-xs font-medium text-sidebar-foreground/70">
             Menu Utama
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink to={item.url} className={getNavCls}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-    </SidebarPrimitive>
+          </div>
+          <nav className="space-y-1">
+            {menuItems.map((item) => (
+              <NavLink
+                key={item.title}
+                to={item.url}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors ${
+                    isActive 
+                      ? "bg-primary text-primary-foreground font-medium" 
+                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  }`
+                }
+              >
+                <item.icon className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">{item.title}</span>
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+      </div>
+    </div>
   );
 }
