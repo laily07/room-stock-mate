@@ -16,8 +16,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
-  useSidebar,
 } from "@/components/ui/sidebar";
 
 interface AppSidebarProps {
@@ -25,7 +23,6 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ currentHouse }: AppSidebarProps) {
-  const { state } = useSidebar();
   const location = useLocation();
 
   // Dynamic menu items based on current house
@@ -67,18 +64,15 @@ export function AppSidebar({ currentHouse }: AppSidebarProps) {
     isActive ? "bg-primary text-primary-foreground font-medium" : "hover:bg-accent";
 
   return (
-    <SidebarPrimitive collapsible="icon">
+    <SidebarPrimitive collapsible="none">
       <SidebarContent className="bg-sidebar-background">
         {/* House Header */}
         <div className="p-4 border-b border-sidebar-border">
-          <div className="flex items-center justify-between">
-            <div className="group-data-[collapsible=icon]:hidden">
-              <h2 className="font-semibold text-sidebar-foreground truncate">
-                {currentHouse || "Pilih Rumah"}
-              </h2>
-              <p className="text-xs text-sidebar-foreground/70">Management Stock</p>
-            </div>
-            <SidebarTrigger />
+          <div>
+            <h2 className="font-semibold text-sidebar-foreground truncate">
+              {currentHouse || "Pilih Rumah"}
+            </h2>
+            <p className="text-xs text-sidebar-foreground/70">Management Stock</p>
           </div>
         </div>
 
