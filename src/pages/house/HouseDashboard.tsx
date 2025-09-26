@@ -1,41 +1,111 @@
 import { useParams } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { Navbar } from "@/components/layout/Navbar";
 import { AppSidebar } from "@/components/layout/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Package, ShoppingCart, Users, TrendingUp, AlertTriangle, CheckCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function HouseDashboard() {
   const { houseName } = useParams();
+  const { user } = useAuth();
   const decodedHouseName = houseName ? decodeURIComponent(houseName) : "";
+  
+  const [stats, setStats] = useState({
+    totalItems: 0,
+    lowStock: 0,
+    members: 0,
+    shoppingList: 0
+  });
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [lowStockItems, setLowStockItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data for dashboard
-  const stats = {
-    totalItems: 23,
-    lowStock: 5,
-    members: 4,
-    shoppingList: 8
+  useEffect(() => {
+    if (user && decodedHouseName) {
+      fetchDashboardData();
+    }
+  }, [user, decodedHouseName]);
+
+  const fetchDashboardData = async () => {
+    try {
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('pengguna_id')
+        .eq('id', user?.id)
+        .single();
+
+      if (userProfile) {
+        const { data: rumah } = await supabase
+          .from('rumah')
+          .select('id_rumah')
+          .eq('nama_rumah', decodedHouseName)
+          .eq('id_pengguna', userProfile.pengguna_id)
+          .single();
+
+        if (rumah) {
+          // Fetch stats
+          const { count: totalItems } = await supabase
+            .from('barang')
+            .select('*', { count: 'exact' })
+            .eq('id_rumah', rumah.id_rumah);
+
+          const { count: members } = await supabase
+            .from('anggota_rumah')
+            .select('*', { count: 'exact' })
+            .eq('id_rumah', rumah.id_rumah)
+            .not('tanggal_dihapus', 'is', null);
+
+          const { count: shoppingList } = await supabase
+            .from('daftar_belanja')
+            .select('*', { count: 'exact' })
+            .eq('id_rumah', rumah.id_rumah)
+            .not('tanggal_dihapus', 'is', null);
+
+          // Fetch low stock items
+          const { data: lowStockData } = await supabase
+            .from('barang')
+            .select('nama_barang, stok, satuan, ambang_batas')
+            .eq('id_rumah', rumah.id_rumah)
+            .lt('stok', 5)
+            .limit(5);
+
+          setStats({
+            totalItems: totalItems || 0,
+            lowStock: lowStockData?.length || 0,
+            members: members || 0,
+            shoppingList: shoppingList || 0
+          });
+
+          setLowStockItems(lowStockData?.map(item => ({
+            name: item.nama_barang,
+            current: item.stok,
+            unit: item.satuan,
+            status: item.stok === 0 ? "habis" : "hampir-habis"
+          })) || []);
+
+          // Mock recent activities for now
+          setRecentActivities([
+            { id: 1, user: "Anda", action: "mengakses dashboard", time: "Baru saja" }
+          ]);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
-
-  const recentActivities = [
-    { id: 1, user: "Rani", action: "menambahkan Beras ke stok", time: "2 jam lalu" },
-    { id: 2, user: "Andi", action: "menandai Minyak Goreng sudah dibeli", time: "3 jam lalu" },
-    { id: 3, user: "Sari", action: "mengedit jumlah Sabun Mandi", time: "5 jam lalu" },
-  ];
-
-  const lowStockItems = [
-    { name: "Beras", current: 2, unit: "kg", status: "hampir-habis" },
-    { name: "Gas LPG", current: 1, unit: "tabung", status: "hampir-habis" },
-    { name: "Sabun Cuci", current: 0, unit: "pcs", status: "habis" },
-  ];
 
   return (
     <SidebarProvider>
       <div className="min-h-screen w-full bg-background">
         <Navbar 
           currentHouse={decodedHouseName}
-          houses={["Rumah A", "Kos B", "Rumah Keluarga"]}
+          houses={[decodedHouseName]}
         />
         
         <div className="flex w-full">
@@ -110,23 +180,33 @@ export default function HouseDashboard() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {lowStockItems.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 rounded-lg border">
-                        <div className="flex items-center space-x-3">
-                          <div className="flex-1">
-                            <p className="font-medium">{item.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {item.current} {item.unit}
-                            </p>
-                          </div>
-                        </div>
-                        <Badge 
-                          variant={item.status === "habis" ? "destructive" : "warning"}
-                        >
-                          {item.status === "habis" ? "Habis" : "Hampir Habis"}
-                        </Badge>
+                    {loading ? (
+                      <div className="text-center py-4">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
                       </div>
-                    ))}
+                    ) : lowStockItems.length > 0 ? (
+                      lowStockItems.map((item, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 rounded-lg border">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex-1">
+                              <p className="font-medium">{item.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {item.current} {item.unit}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge 
+                            variant={item.status === "habis" ? "destructive" : "warning"}
+                          >
+                            {item.status === "habis" ? "Habis" : "Hampir Habis"}
+                          </Badge>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-center text-muted-foreground py-4">
+                        Semua stok dalam kondisi baik
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
 
