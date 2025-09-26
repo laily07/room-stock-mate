@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { Plus, Search, Check, X, ShoppingCart, Users, Calendar } from "lucide-react";
+import { Plus, Search, Check, X, ShoppingCart, Users, Calendar, Package } from "lucide-react";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { Navbar } from "@/components/layout/Navbar";
 import { AppSidebar } from "@/components/layout/Sidebar";
@@ -63,6 +63,15 @@ export default function DaftarBelanja() {
   const [selectedCategory, setSelectedCategory] = useState("Semua");
   const [showCompleted, setShowCompleted] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [checkedItems, setCheckedItems] = useState<number[]>([]);
+  const [isStockUpdateOpen, setIsStockUpdateOpen] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<any[]>([]);
+  const [stockUpdateData, setStockUpdateData] = useState({
+    quantity: "",
+    unit: "",
+    expiry: "",
+    estimatedDepletion: ""
+  });
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
@@ -87,6 +96,41 @@ export default function DaftarBelanja() {
 
   const completedCount = shoppingItems.filter(item => item.completed).length;
   const totalCount = shoppingItems.length;
+
+  const handleItemCheck = (itemId: number, checked: boolean) => {
+    if (checked) {
+      setCheckedItems(prev => [...prev, itemId]);
+    } else {
+      setCheckedItems(prev => prev.filter(id => id !== itemId));
+    }
+  };
+
+  const handleSudahDibeli = () => {
+    const selected = shoppingItems.filter(item => checkedItems.includes(item.id));
+    setSelectedItems(selected);
+    setIsStockUpdateOpen(true);
+  };
+
+  const handleStockUpdate = () => {
+    // Update stock data logic here
+    console.log("Updating stock with:", stockUpdateData, "for items:", selectedItems);
+    
+    // Mark items as completed
+    checkedItems.forEach(itemId => {
+      const item = shoppingItems.find(i => i.id === itemId);
+      if (item) item.completed = true;
+    });
+    
+    // Reset states
+    setCheckedItems([]);
+    setIsStockUpdateOpen(false);
+    setStockUpdateData({
+      quantity: "",
+      unit: "",
+      expiry: "",
+      estimatedDepletion: ""
+    });
+  };
 
   return (
     <SidebarProvider>
@@ -156,6 +200,16 @@ export default function DaftarBelanja() {
                     <Check className="w-4 h-4 mr-2" />
                     Sudah Dibeli
                   </Button>
+
+                  {checkedItems.length > 0 && (
+                    <Button
+                      onClick={handleSudahDibeli}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Check className="w-4 h-4 mr-2" />
+                      Sudah Dibeli ({checkedItems.length})
+                    </Button>
+                  )}
 
                   <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                     <DialogTrigger asChild>
@@ -251,7 +305,8 @@ export default function DaftarBelanja() {
                       <div key={item.id} className={`p-4 rounded-lg border ${item.completed ? 'bg-muted/50' : 'bg-background'}`}>
                         <div className="flex items-start space-x-3">
                           <Checkbox 
-                            checked={item.completed}
+                            checked={checkedItems.includes(item.id)}
+                            onCheckedChange={(checked) => handleItemCheck(item.id, checked as boolean)}
                             className="mt-1"
                           />
                           <div className="flex-1">
@@ -298,6 +353,94 @@ export default function DaftarBelanja() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Stock Update Dialog */}
+              <Dialog open={isStockUpdateOpen} onOpenChange={setIsStockUpdateOpen}>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center space-x-2">
+                      <Package className="h-5 w-5" />
+                      <span>Update Stok Barang</span>
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="bg-muted/50 p-3 rounded-lg">
+                      <p className="text-sm font-medium mb-2">Item yang dibeli:</p>
+                      {selectedItems.map((item, index) => (
+                        <div key={item.id} className="text-sm text-muted-foreground">
+                          • {item.name} ({item.quantity} {item.unit})
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label>Jumlah Stok Baru</Label>
+                        <Input 
+                          type="number" 
+                          placeholder="10"
+                          value={stockUpdateData.quantity}
+                          onChange={(e) => setStockUpdateData(prev => ({...prev, quantity: e.target.value}))}
+                        />
+                      </div>
+                      <div>
+                        <Label>Satuan</Label>
+                        <Select 
+                          value={stockUpdateData.unit}
+                          onValueChange={(value) => setStockUpdateData(prev => ({...prev, unit: value}))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Satuan" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="kg">kg</SelectItem>
+                            <SelectItem value="liter">liter</SelectItem>
+                            <SelectItem value="pcs">pcs</SelectItem>
+                            <SelectItem value="pak">pak</SelectItem>
+                            <SelectItem value="botol">botol</SelectItem>
+                            <SelectItem value="sak">sak</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Tanggal Kadaluarsa</Label>
+                      <Input 
+                        type="date"
+                        value={stockUpdateData.expiry}
+                        onChange={(e) => setStockUpdateData(prev => ({...prev, expiry: e.target.value}))}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Estimasi Habis (hari)</Label>
+                      <Input 
+                        type="number" 
+                        placeholder="30"
+                        value={stockUpdateData.estimatedDepletion}
+                        onChange={(e) => setStockUpdateData(prev => ({...prev, estimatedDepletion: e.target.value}))}
+                      />
+                    </div>
+
+                    <div className="flex space-x-2 pt-4">
+                      <Button 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={() => setIsStockUpdateOpen(false)}
+                      >
+                        Batal
+                      </Button>
+                      <Button 
+                        className="flex-1 bg-green-600 hover:bg-green-700"
+                        onClick={handleStockUpdate}
+                      >
+                        Update Stok
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </SidebarInset>
         </div>
