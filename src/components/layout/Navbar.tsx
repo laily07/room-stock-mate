@@ -1,4 +1,5 @@
-import { Bell, ChevronDown, Home, User } from "lucide-react";
+import { Bell, ChevronDown, Home, User, LogOut } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,6 +9,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 
 interface NavbarProps {
   currentHouse?: string;
@@ -17,6 +20,19 @@ interface NavbarProps {
 }
 
 export const Navbar = ({ currentHouse, houses = [], onHouseChange, onAddHouse }: NavbarProps) => {
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+  const { profile } = useProfile();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/');
+  };
+
+  const handleEditProfile = () => {
+    navigate('/profile');
+  };
+
   return (
     <nav className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -105,13 +121,18 @@ export const Navbar = ({ currentHouse, houses = [], onHouseChange, onAddHouse }:
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <div className="p-2 border-b">
-                  <p className="text-sm font-medium">John Doe</p>
-                  <p className="text-xs text-muted-foreground">john@example.com</p>
+                  <p className="text-sm font-medium">{profile?.nama_pengguna || 'User'}</p>
+                  <p className="text-xs text-muted-foreground">{profile?.email_pengguna || 'user@example.com'}</p>
                 </div>
-                <DropdownMenuItem>Edit Profil</DropdownMenuItem>
-                <DropdownMenuItem>Ganti Password</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleEditProfile}>
+                  <User className="w-4 h-4 mr-2" />
+                  Edit Profil
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive">Logout</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
