@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { TrendingUp, Download, Calendar, BarChart3, PieChart, Users, Package, ShoppingCart } from "lucide-react";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
@@ -10,6 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { DateRangePicker } from "@/components/DateRangePicker";
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays, subWeeks, subMonths, subYears } from "date-fns";
+import type { DateRange } from "react-day-picker";
 
 const monthlyStats = {
   totalItems: 23,
@@ -48,6 +51,66 @@ export default function Laporan() {
   
   const [selectedPeriod, setSelectedPeriod] = useState("bulan-ini");
   const [selectedTab, setSelectedTab] = useState("overview");
+  const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
+  const [filteredData, setFilteredData] = useState(monthlyStats);
+
+  const getPeriodDates = (period: string): { startDate: Date; endDate: Date } => {
+    const now = new Date();
+    
+    switch (period) {
+      case "hari-ini":
+        return {
+          startDate: startOfDay(now),
+          endDate: endOfDay(now)
+        };
+      case "minggu-ini":
+        return {
+          startDate: startOfWeek(now),
+          endDate: endOfWeek(now)
+        };
+      case "bulan-ini":
+        return {
+          startDate: startOfMonth(now),
+          endDate: endOfMonth(now)
+        };
+      case "tahun-ini":
+        return {
+          startDate: startOfYear(now),
+          endDate: endOfYear(now)
+        };
+      case "7-hari":
+        return {
+          startDate: subDays(now, 7),
+          endDate: now
+        };
+      case "30-hari":
+        return {
+          startDate: subDays(now, 30),
+          endDate: now
+        };
+      case "3-bulan":
+        return {
+          startDate: subMonths(now, 3),
+          endDate: now
+        };
+      case "custom":
+        return {
+          startDate: customDateRange?.from || startOfMonth(now),
+          endDate: customDateRange?.to || endOfMonth(now)
+        };
+      default:
+        return {
+          startDate: startOfMonth(now),
+          endDate: endOfMonth(now)
+        };
+    }
+  };
+
+  useEffect(() => {
+    // Here you would filter the actual data based on the selected period
+    // For now, we'll just use the same mock data
+    setFilteredData(monthlyStats);
+  }, [selectedPeriod, customDateRange]);
 
   return (
     <SidebarProvider>
@@ -74,18 +137,29 @@ export default function Laporan() {
                     </p>
                   </div>
                   
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                      <SelectTrigger className="w-40">
+                      <SelectTrigger className="w-48">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="hari-ini">Hari Ini</SelectItem>
                         <SelectItem value="minggu-ini">Minggu Ini</SelectItem>
                         <SelectItem value="bulan-ini">Bulan Ini</SelectItem>
-                        <SelectItem value="3-bulan">3 Bulan Terakhir</SelectItem>
                         <SelectItem value="tahun-ini">Tahun Ini</SelectItem>
+                        <SelectItem value="7-hari">7 Hari Terakhir</SelectItem>
+                        <SelectItem value="30-hari">30 Hari Terakhir</SelectItem>
+                        <SelectItem value="3-bulan">3 Bulan Terakhir</SelectItem>
+                        <SelectItem value="custom">Custom Range</SelectItem>
                       </SelectContent>
                     </Select>
+                    
+                    {selectedPeriod === "custom" && (
+                      <DateRangePicker
+                        date={customDateRange}
+                        onDateChange={setCustomDateRange}
+                      />
+                    )}
                     
                     <Button variant="outline">
                       <Download className="w-4 h-4 mr-2" />
@@ -103,9 +177,9 @@ export default function Laporan() {
                     <BarChart3 className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{monthlyStats.activities}</div>
+                    <div className="text-2xl font-bold">{filteredData.activities}</div>
                     <p className="text-xs text-muted-foreground">
-                      +12% dari bulan lalu
+                      +12% dari periode sebelumnya
                     </p>
                   </CardContent>
                 </Card>
@@ -116,9 +190,9 @@ export default function Laporan() {
                     <Package className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{monthlyStats.usedItems}</div>
+                    <div className="text-2xl font-bold">{filteredData.usedItems}</div>
                     <p className="text-xs text-muted-foreground">
-                      dari {monthlyStats.totalItems} total item
+                      dari {filteredData.totalItems} total item
                     </p>
                   </CardContent>
                 </Card>
@@ -129,9 +203,9 @@ export default function Laporan() {
                     <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{monthlyStats.completedShopping}</div>
+                    <div className="text-2xl font-bold">{filteredData.completedShopping}</div>
                     <p className="text-xs text-muted-foreground">
-                      dari {monthlyStats.shoppingList} item
+                      dari {filteredData.shoppingList} item
                     </p>
                   </CardContent>
                 </Card>
@@ -142,7 +216,7 @@ export default function Laporan() {
                     <Users className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{monthlyStats.members}</div>
+                    <div className="text-2xl font-bold">{filteredData.members}</div>
                     <p className="text-xs text-muted-foreground">
                       100% partisipasi
                     </p>

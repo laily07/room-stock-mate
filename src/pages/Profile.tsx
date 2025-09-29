@@ -1,5 +1,8 @@
-import { useState } from "react";
-import { User, Mail, Phone, Settings, Bell, Shield, Key, Camera, Save } from "lucide-react";
+import { useState, useEffect } from "react";
+import { User, Mail, Phone, Settings, Bell, Shield, Key, Camera, Save, Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,24 +11,25 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Navbar } from "@/components/layout/Navbar";
+import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
+import { toast } from "@/hooks/use-toast";
 
-const userProfile = {
-  name: "Rani Suryani",
-  email: "rani@email.com",
-  phone: "+62 812-3456-7890",
-  avatar: "",
-  joinDate: "2024-01-01",
-  totalHouses: 3,
-  totalActivities: 156,
-  role: "Admin"
-};
+const profileSchema = z.object({
+  nama_pengguna: z.string().min(2, "Nama harus minimal 2 karakter").max(50, "Nama maksimal 50 karakter"),
+  email_pengguna: z.string().email("Format email tidak valid"),
+});
 
-const userHouses = [
-  { name: "Rumah A", role: "admin", members: 5, items: 23 },
-  { name: "Kos B", role: "member", members: 8, items: 18 },
-  { name: "Rumah Keluarga", role: "moderator", members: 4, items: 31 }
-];
+const passwordSchema = z.object({
+  currentPassword: z.string().min(1, "Password saat ini wajib diisi"),
+  newPassword: z.string().min(6, "Password baru minimal 6 karakter"),
+  confirmPassword: z.string(),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Konfirmasi password tidak cocok",
+  path: ["confirmPassword"],
+});
 
 const notifications = {
   lowStock: true,
@@ -37,9 +41,37 @@ const notifications = {
 };
 
 export default function Profile() {
+  const { user, signOut } = useAuth();
+  const { profile, houses, loading, error, updateProfile } = useProfile();
   const [isEditing, setIsEditing] = useState(false);
-  const [profileData, setProfileData] = useState(userProfile);
   const [notificationSettings, setNotificationSettings] = useState(notifications);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const profileForm = useForm<z.infer<typeof profileSchema>>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      nama_pengguna: "",
+      email_pengguna: "",
+    },
+  });
+
+  const passwordForm = useForm<z.infer<typeof passwordSchema>>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+  });
+
+  useEffect(() => {
+    if (profile) {
+      profileForm.reset({
+        nama_pengguna: profile.nama_pengguna,
+        email_pengguna: profile.email_pengguna,
+      });
+    }
+  }, [profile, profileForm]);
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -56,10 +88,64 @@ export default function Profile() {
     }
   };
 
-  const handleSaveProfile = () => {
-    // Here you would save to backend
-    setIsEditing(false);
-    console.log("Profile saved:", profileData);
+  const handleSaveProfile = async (data: z.infer<typeof profileSchema>) => {
+    setIsUpdating(true);
+    try {
+      const { error } = await updateProfile(data);
+      if (error) throw error;
+      
+      toast({
+        title: "Profil berhasil diperbarui",
+        description: "Perubahan profil telah disimpan.",
+      });
+      setIsEditing(false);
+    } catch (err: any) {
+      toast({
+        title: "Gagal memperbarui profil",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handlePasswordChange = async (data: z.infer<typeof passwordSchema>) => {
+    setIsUpdating(true);
+    try {
+      // Here you would implement password change logic
+      toast({
+        title: "Password berhasil diubah",
+        description: "Password Anda telah diperbarui.",
+      });
+      passwordForm.reset();
+    } catch (err: any) {
+      toast({
+        title: "Gagal mengubah password",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (confirm("Apakah Anda yakin ingin menghapus akun? Tindakan ini tidak dapat dibatalkan.")) {
+      try {
+        await signOut();
+        toast({
+          title: "Akun berhasil dihapus",
+          description: "Akun Anda telah dihapus.",
+        });
+      } catch (err: any) {
+        toast({
+          title: "Gagal menghapus akun",
+          description: err.message,
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const handleNotificationChange = (key: string, value: boolean) => {
@@ -68,6 +154,34 @@ export default function Profile() {
       [key]: value
     }));
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex items-center justify-center h-96">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="max-w-4xl mx-auto p-6">
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-center text-muted-foreground">
+                {error || "Profil tidak ditemukan"}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -105,9 +219,9 @@ export default function Profile() {
                 <div className="flex items-center space-x-6">
                   <div className="relative">
                     <Avatar className="h-24 w-24 border-4 border-background shadow-lg">
-                      <AvatarImage src={profileData.avatar} />
+                      <AvatarImage src={user?.user_metadata?.avatar_url} />
                       <AvatarFallback className="bg-gradient-to-br from-primary to-primary-light text-primary-foreground text-xl">
-                        {getInitials(profileData.name)}
+                        {getInitials(profile.nama_pengguna)}
                       </AvatarFallback>
                     </Avatar>
                     <Button
@@ -119,78 +233,100 @@ export default function Profile() {
                     </Button>
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-xl font-semibold">{profileData.name}</h3>
+                    <h3 className="text-xl font-semibold">{profile.nama_pengguna}</h3>
                     <div className="flex items-center space-x-2">
-                      {getRoleBadge(profileData.role)}
                       <Badge variant="outline">
-                        {profileData.totalHouses} rumah/kos
+                        {houses.length} rumah/kos
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Bergabung sejak {new Date(profileData.joinDate).toLocaleDateString('id-ID')}
+                      Bergabung sejak {profile.created_at ? new Date(profile.created_at).toLocaleDateString('id-ID') : '-'}
                     </p>
                   </div>
                 </div>
 
                 {/* Profile Form */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nama Lengkap</Label>
-                    <Input
-                      id="name"
-                      value={profileData.name}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
-                      disabled={!isEditing}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={profileData.email}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-                      disabled={!isEditing}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Nomor Telepon</Label>
-                    <Input
-                      id="phone"
-                      value={profileData.phone}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                      disabled={!isEditing}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Total Aktivitas</Label>
-                    <Input
-                      value={`${profileData.totalActivities} aktivitas`}
-                      disabled
-                      className="bg-muted"
-                    />
-                  </div>
-                </div>
+                <Form {...profileForm}>
+                  <form onSubmit={profileForm.handleSubmit(handleSaveProfile)} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={profileForm.control}
+                        name="nama_pengguna"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Nama Lengkap</FormLabel>
+                            <FormControl>
+                              <Input {...field} disabled={!isEditing} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={profileForm.control}
+                        name="email_pengguna"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="email" disabled={!isEditing} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="space-y-2">
+                        <Label>Total Rumah/Kos</Label>
+                        <Input
+                          value={`${houses.length} rumah/kos`}
+                          disabled
+                          className="bg-muted"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>User ID</Label>
+                        <Input
+                          value={profile.pengguna_id.toString()}
+                          disabled
+                          className="bg-muted"
+                        />
+                      </div>
+                    </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  {isEditing ? (
-                    <>
-                      <Button onClick={handleSaveProfile}>
-                        <Save className="w-4 h-4 mr-2" />
-                        Simpan Perubahan
-                      </Button>
-                      <Button variant="outline" onClick={() => setIsEditing(false)}>
-                        Batal
-                      </Button>
-                    </>
-                  ) : (
-                    <Button onClick={() => setIsEditing(true)}>
-                      <Settings className="w-4 h-4 mr-2" />
-                      Edit Profil
-                    </Button>
-                  )}
-                </div>
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      {isEditing ? (
+                        <>
+                          <Button type="submit" disabled={isUpdating}>
+                            {isUpdating ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <Save className="w-4 h-4 mr-2" />
+                            )}
+                            Simpan Perubahan
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => {
+                              setIsEditing(false);
+                              profileForm.reset();
+                            }}
+                            disabled={isUpdating}
+                          >
+                            Batal
+                          </Button>
+                        </>
+                      ) : (
+                        <Button type="button" onClick={() => setIsEditing(true)}>
+                          <Settings className="w-4 h-4 mr-2" />
+                          Edit Profil
+                        </Button>
+                      )}
+                    </div>
+                  </form>
+                </Form>
+
               </CardContent>
             </Card>
           </TabsContent>
@@ -205,22 +341,22 @@ export default function Profile() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {userHouses.map((house, index) => (
+                  {houses.map((house, index) => (
                     <Card key={index} className="card-hover">
                       <CardContent className="pt-6">
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
-                            <h3 className="font-semibold">{house.name}</h3>
+                            <h3 className="font-semibold">{house.nama_rumah}</h3>
                             {getRoleBadge(house.role)}
                           </div>
                           <div className="space-y-1 text-sm text-muted-foreground">
                             <div className="flex justify-between">
                               <span>Anggota:</span>
-                              <span>{house.members} orang</span>
+                              <span>{house.member_count} orang</span>
                             </div>
                             <div className="flex justify-between">
                               <span>Total Item:</span>
-                              <span>{house.items} item</span>
+                              <span>{house.item_count} item</span>
                             </div>
                           </div>
                           <Button variant="outline" size="sm" className="w-full">
@@ -231,6 +367,11 @@ export default function Profile() {
                     </Card>
                   ))}
                 </div>
+                {houses.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">Belum ada rumah/kos yang diikuti</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -342,23 +483,55 @@ export default function Profile() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Password Saat Ini</Label>
-                    <Input type="password" placeholder="Masukkan password saat ini" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Password Baru</Label>
-                    <Input type="password" placeholder="Masukkan password baru" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Konfirmasi Password Baru</Label>
-                    <Input type="password" placeholder="Konfirmasi password baru" />
-                  </div>
-                  <Button>
-                    Ubah Password
-                  </Button>
-                </div>
+                <Form {...passwordForm}>
+                  <form onSubmit={passwordForm.handleSubmit(handlePasswordChange)} className="space-y-4">
+                    <FormField
+                      control={passwordForm.control}
+                      name="currentPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Password Saat Ini</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="password" placeholder="Masukkan password saat ini" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={passwordForm.control}
+                      name="newPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Password Baru</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="password" placeholder="Masukkan password baru" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={passwordForm.control}
+                      name="confirmPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Konfirmasi Password Baru</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="password" placeholder="Konfirmasi password baru" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button type="submit" disabled={isUpdating}>
+                      {isUpdating ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : null}
+                      Ubah Password
+                    </Button>
+                  </form>
+                </Form>
 
                 <hr />
 
@@ -370,7 +543,10 @@ export default function Profile() {
                       Setelah akun dihapus, semua data akan dihapus secara permanen. 
                       Tindakan ini tidak dapat dibatalkan.
                     </p>
-                    <Button variant="destructive">
+                    <Button variant="destructive" onClick={handleDeleteAccount} disabled={isUpdating}>
+                      {isUpdating ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : null}
                       Hapus Akun
                     </Button>
                   </div>
