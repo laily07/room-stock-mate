@@ -11,6 +11,7 @@ import DaftarBelanja from "./pages/house/DaftarBelanja";
 import Anggota from "./pages/house/Anggota";
 import Laporan from "./pages/house/Laporan";
 import Timeline from "./pages/house/Timeline";
+import Notifikasi from "./pages/house/Notifikasi";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
@@ -26,6 +27,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/house/:houseName/dashboard" element={<HouseDashboard />} />
+            <Route path="/house/:houseName/notifikasi" element={<Notifikasi />} />
             <Route path="/house/:houseName/stok-barang" element={<StokBarang />} />
             <Route path="/house/:houseName/daftar-belanja" element={<DaftarBelanja />} />
             <Route path="/house/:houseName/anggota" element={<Anggota />} />

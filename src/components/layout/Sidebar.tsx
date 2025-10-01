@@ -6,6 +6,7 @@ import {
   Users, 
   BarChart3, 
   Clock,
+  Bell,
 } from "lucide-react";
 import {
   Sidebar as SidebarPrimitive,
@@ -31,6 +32,11 @@ export function AppSidebar({ currentHouse }: AppSidebarProps) {
       title: "Dashboard",
       url: `/house/${encodeURIComponent(currentHouse || "")}/dashboard`,
       icon: LayoutDashboard,
+    },
+    {
+      title: "Notifikasi",
+      url: `/house/${encodeURIComponent(currentHouse || "")}/notifikasi`,
+      icon: Bell,
     },
     {
       title: "Stok Barang", 
