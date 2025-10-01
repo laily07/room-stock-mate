@@ -22,7 +22,7 @@ interface NavbarProps {
 export const Navbar = ({ currentHouse, houses = [], onHouseChange, onAddHouse }: NavbarProps) => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const { profile } = useProfile();
+  const { profile, loading: profileLoading } = useProfile();
 
   const handleLogout = async () => {
     await signOut();
@@ -121,8 +121,12 @@ export const Navbar = ({ currentHouse, houses = [], onHouseChange, onAddHouse }:
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <div className="p-2 border-b">
-                  <p className="text-sm font-medium">{profile?.nama_pengguna || 'User'}</p>
-                  <p className="text-xs text-muted-foreground">{profile?.email_pengguna || 'user@example.com'}</p>
+                  <p className="text-sm font-medium">
+                    {profileLoading ? 'Loading...' : (profile?.nama_pengguna || 'User')}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {profileLoading ? 'Loading...' : (profile?.email_pengguna || 'user@example.com')}
+                  </p>
                 </div>
                 <DropdownMenuItem onClick={handleEditProfile}>
                   <User className="w-4 h-4 mr-2" />
